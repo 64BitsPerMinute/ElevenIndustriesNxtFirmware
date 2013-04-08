@@ -1,6 +1,7 @@
 import java.io.IOException;
 
 import lejos.nxt.Battery;
+import lejos.nxt.Button;
 import lejos.nxt.LightSensor;
 import lejos.nxt.Motor;
 import lejos.nxt.SensorPort;
@@ -18,10 +19,11 @@ public class RobotSystem {
 	private static SoundSensor sSound = new SoundSensor(SensorPort.S2);
 	private static LightSensor sLight = new LightSensor(SensorPort.S3);
 	private static UltrasonicSensor sUltra = new UltrasonicSensor(SensorPort.S4);
-
-	static double xPosition = 0;
-	static double yPosition = 0;
-
+	
+	static int xPosition = 0;
+	static int yPosition = 0;
+	static long previousSoundTime = 0;
+	
 	// DifferentialPilot is our motion controller, we will exclusively use the
 	// object to navigate the robot around
 	// the first two arguments are wheel diameters and track width (in cm)
@@ -32,20 +34,48 @@ public class RobotSystem {
 	private DifferentialPilot pilot = new DifferentialPilot(2.25f, 5.5f,
 			Motor.B, Motor.C);
 
-	public void RobotSystem() {
+	public RobotSystem() {
+		pilot.setRotateSpeed(30);
 		// Register a listener to port S1 which is the Touch sensor at the back
 		SensorPort.S1.addSensorPortListener(new SensorPortListener() { // Listener's
 																		// style
 					@Override
 					public void stateChanged(SensorPort arg0, int arg1, int arg2) {
 						if (sTouch.isPressed()) {
-							RobotCommunicator.sendDebugString("true");
-							System.out.print("sTouch:true");
+							//RobotComm.sendString("Touch:true");
+							System.out.print("\nYOU POKED ME");
+							pilot.backward();
+							try {
+								Thread.sleep(1000);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							pilot.stop();
 						}
 					}
 
 				});
 		
+		SensorPort.S2.addSensorPortListener(new SensorPortListener() {
+			
+			@Override
+			public void stateChanged(SensorPort arg0, int arg1, int arg2) {
+				// TODO Auto-generated method stub
+				if(sSound.readValue()>85 && (System.currentTimeMillis()-previousSoundTime)>300){
+					pilot.stop();
+					System.out.print("\nLOUD SOUND BOOM!");
+					previousSoundTime = System.currentTimeMillis();
+				}
+			}
+		});
+		
+		
+	}
+	
+	public void breakpoint(){
+		this.stop();
+		Button.waitForPress();
 	}
 	
 	public int getSoundData(){
@@ -58,6 +88,14 @@ public class RobotSystem {
 	
 	public int getUltraSonicData(){
 		return sUltra.getDistance();
+	}
+	
+	public String getTouchData(){
+		if(sTouch.isPressed()){
+			return "1";
+		} else {
+			return "0";
+		}
 	}
 	
 	public int getBatteryStrength(){
@@ -80,33 +118,35 @@ public class RobotSystem {
 		return Motor.C.getLimitAngle();
 	}
 
-	public void turnLeft() {
-		pilot.rotate(-90);
-		RobotCommunicator.sendDebugString("TurnLeft Command Executed");
+	//Returning status string. s =success, f = fail, n = null
+	
+	public String turnLeft() {
+		pilot.rotateLeft();
+		return "S";
 	}
 
-	public void turnRight() {
-		pilot.rotate(90);
-		RobotCommunicator.sendDebugString("TurnRight Command Executed");
+	public String turnRight() {
+		pilot.rotateRight();
+		return "S";
 	}
 
-	public void moveForward() {
+	public String moveForward() {
 		pilot.forward();
-		RobotCommunicator.sendDebugString("MoveForward Command Executed");
+		return "S";
 	}
 
-	public void moveBackward() {
+	public String moveBackward() {
 		pilot.backward();
-		RobotCommunicator.sendDebugString("MoveBackward Command Executed");
+		return "S";
 	}
 
-	public void stop() {
+	public String stop() {
 		pilot.stop();
-		RobotCommunicator.sendDebugString("Stop Command Executed");
+		return "S";
 	}
 	
-	private static double[] getLocation() {
-			double[] ret = {xPosition, yPosition};
+	public static int[] getLocation() {
+			int[] ret = {xPosition, yPosition};
 		return ret;
 	}
 
