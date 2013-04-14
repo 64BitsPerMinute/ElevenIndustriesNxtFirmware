@@ -1,5 +1,3 @@
-import java.io.IOException;
-
 import lejos.nxt.Battery;
 import lejos.nxt.Button;
 import lejos.nxt.LightSensor;
@@ -36,19 +34,15 @@ public class RobotSystem {
 
 	public RobotSystem() {
 		pilot.setRotateSpeed(30);
-		// Register a listener to port S1 which is the Touch sensor at the back
-		SensorPort.S1.addSensorPortListener(new SensorPortListener() { // Listener's
-																		// style
+		SensorPort.S1.addSensorPortListener(new SensorPortListener() { 
 					@Override
 					public void stateChanged(SensorPort arg0, int arg1, int arg2) {
 						if (sTouch.isPressed()) {
-							//RobotComm.sendString("Touch:true");
 							System.out.print("\nYOU POKED ME");
 							pilot.backward();
 							try {
 								Thread.sleep(1000);
 							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}
 							pilot.stop();
@@ -61,7 +55,6 @@ public class RobotSystem {
 			
 			@Override
 			public void stateChanged(SensorPort arg0, int arg1, int arg2) {
-				// TODO Auto-generated method stub
 				if(sSound.readValue()>85 && (System.currentTimeMillis()-previousSoundTime)>300){
 					pilot.stop();
 					System.out.print("\nLOUD SOUND BOOM!");
@@ -130,12 +123,20 @@ public class RobotSystem {
 		return "S";
 	}
 
-	public String moveForward() {
+	public String moveForward(String speeds) {
+		int leftSpeed = Integer.parseInt(speeds.substring(0,4));
+		Motor.B.setSpeed(leftSpeed);
+		int rightSpeed = Integer.parseInt(speeds.substring(4,8));
+		Motor.C.setSpeed(rightSpeed);
 		pilot.forward();
 		return "S";
 	}
 
-	public String moveBackward() {
+	public String moveBackward(String speeds) {
+		int leftSpeed = Integer.parseInt(speeds.substring(0,4));
+		Motor.B.setSpeed(leftSpeed);
+		int rightSpeed = Integer.parseInt(speeds.substring(4,8));
+		Motor.C.setSpeed(rightSpeed);
 		pilot.backward();
 		return "S";
 	}
@@ -145,7 +146,7 @@ public class RobotSystem {
 		return "S";
 	}
 	
-	public static int[] getLocation() {
+	public int[] getLocation() {
 			int[] ret = {xPosition, yPosition};
 		return ret;
 	}
