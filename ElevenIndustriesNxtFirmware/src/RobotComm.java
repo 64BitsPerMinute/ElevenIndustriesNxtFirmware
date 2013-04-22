@@ -22,12 +22,7 @@ public class RobotComm extends Object {
 		do {
 
 			System.out.println("\nWaiting for Connection...");
-			// NXTConnection connection = null;
-			// if (USBtest) {
-			// connection = USB.waitForConnection();
-			// } else {
 			connection = Bluetooth.waitForConnection();
-			// }
 			if (connection == null) {
 				System.out.println("\nFailed");
 			} else {
@@ -37,6 +32,7 @@ public class RobotComm extends Object {
 			os = new DataOutputStream(connection.openOutputStream());
 			is = new DataInputStream(connection.openInputStream());
 			lastMessageTime = System.currentTimeMillis();
+			robot.setHome();
 			do {
 				try {
 
@@ -45,9 +41,9 @@ public class RobotComm extends Object {
 					if (count > 0) {
 						lastMessageTime = System.currentTimeMillis();
 						input = (new String(buffer)).trim();
-						if (verifyMessage(input)) {
+						//if (verifyMessage(input)) {
 							parseMessage(input);
-						}
+						//}
 					}
 					Thread.sleep(10);
 
@@ -88,7 +84,6 @@ public class RobotComm extends Object {
 			os.flush();
 			messageNumber++;
 		} catch (IOException e) {
-
 			e.printStackTrace();
 		}
 	}
@@ -105,6 +100,7 @@ public class RobotComm extends Object {
 			if (messageSource.equals("D")) {
 				robot.breakpoint();
 			}
+			robot.log('A',"");
 			status = robot.turnLeft();
 			sendExecutionResponse(messageID, status);
 			break;
@@ -114,6 +110,7 @@ public class RobotComm extends Object {
 			if (messageSource.equals("D")) {
 				robot.breakpoint();
 			}
+			robot.log('B',"");
 			status = robot.turnRight();
 			sendExecutionResponse(messageID, status);
 			break;
@@ -123,6 +120,7 @@ public class RobotComm extends Object {
 			if (messageSource.equals("D")) {
 				robot.breakpoint();
 			}
+			robot.log('C',input.substring(13,21));
 			status = robot.moveForward(input.substring(13, 21));// get two speed
 																// parameters
 			sendExecutionResponse(messageID, status);
@@ -133,6 +131,7 @@ public class RobotComm extends Object {
 			if (messageSource.equals("D")) {
 				robot.breakpoint();
 			}
+			robot.log('D',input.substring(13,21));
 			status = robot.moveBackward(input.substring(13, 21));
 			sendExecutionResponse(messageID, status);
 			break;
@@ -142,6 +141,7 @@ public class RobotComm extends Object {
 			if (messageSource.equals("D")) {
 				robot.breakpoint();
 			}
+			robot.log('F',"");
 			status = robot.stop();
 			sendExecutionResponse(messageID, status);
 			break;
@@ -149,6 +149,12 @@ public class RobotComm extends Object {
 			System.out.print(" P");
 			sendCommandAcknowledgement(messageID);
 			sendSystemStatusData();
+			break;
+		case 'T':
+			sendCommandAcknowledgement(messageID);
+			System.out.print("\nGoing Home");
+			status = robot.goHome();
+			sendExecutionResponse(messageID, status);
 			break;
 		case 'Z':
 			System.out.print(" Z");
@@ -170,9 +176,22 @@ public class RobotComm extends Object {
 	}
 
 	private static void sendExecutionResponse(String messageID, String status) {
+		if(!status.equals("S")){
+			RobotComm.sendErrorCode('k');
+			return;
+		}
 		String opcode = "L";
 		String message = messageSourceID + format4ByteNumber(messageNumber)
 				+ opcode + messageID + status;
+		String checksum = calculateChecksum(message);
+		message = headerString + checksum + message + endString;
+		sendString(message);
+	}
+
+	private static void sendErrorCode(char c) {
+		String opcode = "M";
+		String message = messageSourceID + format4ByteNumber(messageNumber)
+				+ opcode + Character.toString(c);
 		String checksum = calculateChecksum(message);
 		message = headerString + checksum + message + endString;
 		sendString(message);
@@ -213,9 +232,6 @@ public class RobotComm extends Object {
 	}
 
 	private static String format4ByteNumber(int number) {
-		// return "" + (char)((number/16777216)%256) +
-		// (char)((number/65536)%256) +
-		// (char)((number/256)%256) + (char)((number)%256);
 		int[] numbers = { 0, 0, 0, 0 };
 		numbers[3] = number % 10;
 		numbers[2] = (number % 100) / 10;
@@ -236,9 +252,7 @@ public class RobotComm extends Object {
 	}
 
 	private static String formatChecksum(int checksum) {
-		// return "" + (char)((checksum/256)%256) + (char)(checksum %256);
 		return "" + ((checksum % 100) / 10) + (checksum % 10);
-
 	}
 
 }

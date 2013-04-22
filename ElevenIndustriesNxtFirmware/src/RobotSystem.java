@@ -1,3 +1,5 @@
+import java.util.Stack;
+
 import lejos.nxt.Battery;
 import lejos.nxt.Button;
 import lejos.nxt.LightSensor;
@@ -21,6 +23,8 @@ public class RobotSystem {
 	static int xPosition = 0;
 	static int yPosition = 0;
 	static long previousSoundTime = 0;
+	
+	Stack<Command> log = new Stack<Command>();
 	
 	// DifferentialPilot is our motion controller, we will exclusively use the
 	// object to navigate the robot around
@@ -149,6 +153,52 @@ public class RobotSystem {
 	public int[] getLocation() {
 			int[] ret = {xPosition, yPosition};
 		return ret;
+	}
+
+	public void setHome() {
+		log.clear();
+		this.log('F',"");
+	}
+
+	public String goHome() {
+		//pilot.rotate(180);
+		for(int i = 0;i<log.size()-1;i++){
+			Command c = log.pop();
+			invertCommand(c,c.getTime()-log.peek().getTime());
+		}	
+		//pilot.rotate(180);
+		setHome();
+		return "S";
+	}
+
+	private void invertCommand(Command c, long time) {
+		switch(c.getOpcode()){
+		case 'A':
+			this.turnRight();
+			break;
+		case 'B':
+			this.turnLeft();
+			break;
+		case 'C':
+			this.moveBackward(c.getParameters().substring(4,8)+c.getParameters().substring(0,4));
+			break;
+		case 'D':
+			this.moveForward(c.getParameters().substring(4,8)+c.getParameters().substring(0,4));
+			break;
+		case 'F':
+			this.stop();
+			return;
+		}
+		
+		try {
+			Thread.sleep(time);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void log(char c, String parameters) {
+		log.push(new Command(c,parameters,System.currentTimeMillis()));
 	}
 
 }
