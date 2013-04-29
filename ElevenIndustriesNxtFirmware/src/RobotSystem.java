@@ -38,18 +38,23 @@ public class RobotSystem {
 
 	public RobotSystem() {
 		pilot.setRotateSpeed(30);
+		
 		SensorPort.S1.addSensorPortListener(new SensorPortListener() { 
 					@Override
 					public void stateChanged(SensorPort arg0, int arg1, int arg2) {
 						if (sTouch.isPressed()) {
 							System.out.print("\nYOU POKED ME");
+							pilot.stop();
+							log('F',"");
 							pilot.backward();
+							log('D',"");
 							try {
 								Thread.sleep(1000);
 							} catch (InterruptedException e) {
 								e.printStackTrace();
 							}
 							pilot.stop();
+							log('F',"");
 						}
 					}
 
@@ -61,6 +66,7 @@ public class RobotSystem {
 			public void stateChanged(SensorPort arg0, int arg1, int arg2) {
 				if(sSound.readValue()>85 && (System.currentTimeMillis()-previousSoundTime)>300){
 					pilot.stop();
+					log('F',"");
 					System.out.print("\nLOUD SOUND BOOM!");
 					previousSoundTime = System.currentTimeMillis();
 				}
@@ -129,20 +135,36 @@ public class RobotSystem {
 
 	public String moveForward(String speeds) {
 		int leftSpeed = Integer.parseInt(speeds.substring(0,4));
-		Motor.B.setSpeed(leftSpeed);
 		int rightSpeed = Integer.parseInt(speeds.substring(4,8));
-		Motor.C.setSpeed(rightSpeed);
-		pilot.forward();
-		return "S";
+		double ratio = (double) rightSpeed/ (double) leftSpeed;
+		if(ratio == 1.0){
+			pilot.steer(0);
+			return "S";
+		} else if(ratio>1.0){
+			pilot.steer(25);
+			return "S";
+		} else if(ratio<1.0) {
+			pilot.steer(-25);
+			return "S";
+		}
+		return "F";
 	}
 
 	public String moveBackward(String speeds) {
 		int leftSpeed = Integer.parseInt(speeds.substring(0,4));
-		Motor.B.setSpeed(leftSpeed);
 		int rightSpeed = Integer.parseInt(speeds.substring(4,8));
-		Motor.C.setSpeed(rightSpeed);
-		pilot.backward();
-		return "S";
+		double ratio = (double) rightSpeed/ (double) leftSpeed;
+		if(ratio == 1.0){
+			pilot.steerBackward(0);
+			return "S";
+		} else if(ratio>1.0){
+			pilot.steerBackward(25);
+			return "S";
+		} else if(ratio<1.0) {
+			pilot.steerBackward(-25);
+			return "S";
+		}
+		return "F";
 	}
 
 	public String stop() {
@@ -161,17 +183,19 @@ public class RobotSystem {
 	}
 
 	public String goHome() {
-		//pilot.rotate(180);
+		pilot.stop();
 		for(int i = 0;i<log.size()-1;i++){
 			Command c = log.pop();
-			invertCommand(c,c.getTime()-log.peek().getTime());
+			invertCommand(log.peek(),c.getTime()-log.peek().getTime());
 		}	
-		//pilot.rotate(180);
+		pilot.stop();
 		setHome();
 		return "S";
 	}
 
 	private void invertCommand(Command c, long time) {
+		String leftSpeed;
+		String rightSpeed;
 		switch(c.getOpcode()){
 		case 'A':
 			this.turnRight();
@@ -180,16 +204,22 @@ public class RobotSystem {
 			this.turnLeft();
 			break;
 		case 'C':
-			this.moveBackward(c.getParameters().substring(4,8)+c.getParameters().substring(0,4));
+			leftSpeed = c.getParameters().substring(0,4);
+			rightSpeed = c.getParameters().substring(4,8);
+			this.moveBackward(rightSpeed + leftSpeed);
 			break;
 		case 'D':
-			this.moveForward(c.getParameters().substring(4,8)+c.getParameters().substring(0,4));
+			leftSpeed = c.getParameters().substring(0,4);
+			rightSpeed = c.getParameters().substring(4,8);
+			this.moveForward(rightSpeed + leftSpeed);
 			break;
 		case 'F':
 			this.stop();
 			return;
+		default:
+			this.stop();
+			return;
 		}
-		
 		try {
 			Thread.sleep(time);
 		} catch (InterruptedException e) {

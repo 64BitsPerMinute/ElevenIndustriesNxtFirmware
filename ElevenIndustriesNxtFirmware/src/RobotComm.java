@@ -6,17 +6,19 @@ import lejos.nxt.comm.Bluetooth;
 
 public class RobotComm extends Object {
 
+	//Each of these are needed among multiple methods below (local variables don't make sense)
+	private static final int minMessageLength = 9;
+	private static final long timeOut = 10000;
 	private static RobotSystem robot = new RobotSystem();
-	private static DataOutputStream os;
-	private static DataInputStream is;
+	private static DataOutputStream outputStream;
+	private static DataInputStream inputStream;
 	private static BTConnection connection = null;
 	private static String headerString = "#";
 	private static String messageSourceID = "R";
 	private static String endString = "" + (char) 0;
 	private static int messageNumber = 0;
 	private static long lastMessageTime = 0;
-	static String input = "";
-	String output = "";
+	private static String input = "";
 
 	public static void main(String[] args) {
 		do {
@@ -29,15 +31,21 @@ public class RobotComm extends Object {
 				System.out.println("\nConnection Established!");
 			}
 
-			os = new DataOutputStream(connection.openOutputStream());
-			is = new DataInputStream(connection.openInputStream());
+			outputStream = new DataOutputStream(connection.openOutputStream());
+			if(outputStream==null){
+				continue;
+			}
+			inputStream = new DataInputStream(connection.openInputStream());
+			if(inputStream==null){
+				continue;
+			}
 			lastMessageTime = System.currentTimeMillis();
 			robot.setHome();
 			do {
 				try {
 
 					byte[] buffer = new byte[256];
-					int count = is.read(buffer);
+					int count = inputStream.read(buffer);
 					if (count > 0) {
 						lastMessageTime = System.currentTimeMillis();
 						input = (new String(buffer)).trim();
@@ -51,12 +59,12 @@ public class RobotComm extends Object {
 					System.out.println(" write error " + e);
 					System.exit(1);
 				}
-			} while ((System.currentTimeMillis()) - lastMessageTime < 10000);
+			} while ((System.currentTimeMillis()) - lastMessageTime < timeOut);
 			System.out.println("\nSignal Lost...");
 			robot.stop();
 			try {
-				os.close();
-				is.close();
+				outputStream.close();
+				inputStream.close();
 				connection.close();
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -65,7 +73,7 @@ public class RobotComm extends Object {
 	}
 
 	public static boolean verifyMessage(String message) {
-		if (message.length() < 5) {
+		if (message.length() < minMessageLength) {
 			System.out.print("MessageTooShort");
 			return false;
 		}
@@ -80,8 +88,8 @@ public class RobotComm extends Object {
 
 	public static void sendString(String s) {
 		try {
-			os.write(s.getBytes());
-			os.flush();
+			outputStream.write(s.getBytes());
+			outputStream.flush();
 			messageNumber++;
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -93,11 +101,15 @@ public class RobotComm extends Object {
 		String messageID = input.substring(3, 8);
 		String status = "N";
 		String messageSource = input.substring(3, 4);
+		String breakpointTrigger = "1111";
+		String breakpointSubstring = "";
+		String speedParameters = "";
 		switch (opcode) {
 		case 'A':
 			System.out.print("\nTurnLeft Command");
 			sendCommandAcknowledgement(messageID);
-			if (messageSource.equals("D")) {
+			breakpointSubstring = input.substring(9,13);
+			if (breakpointSubstring.equals(breakpointTrigger)) {
 				robot.breakpoint();
 			}
 			robot.log('A',"");
@@ -107,7 +119,8 @@ public class RobotComm extends Object {
 		case 'B':
 			sendCommandAcknowledgement(messageID);
 			System.out.print("\nTurnRight Command");
-			if (messageSource.equals("D")) {
+			breakpointSubstring = input.substring(9,13);
+			if (breakpointSubstring.equals(breakpointTrigger)) {
 				robot.breakpoint();
 			}
 			robot.log('B',"");
@@ -117,28 +130,33 @@ public class RobotComm extends Object {
 		case 'C':
 			sendCommandAcknowledgement(messageID);
 			System.out.print("\nMoveForward Command");
-			if (messageSource.equals("D")) {
+			breakpointSubstring = input.substring(9,13);
+			if (breakpointSubstring.equals(breakpointTrigger)) {
 				robot.breakpoint();
 			}
-			robot.log('C',input.substring(13,21));
-			status = robot.moveForward(input.substring(13, 21));// get two speed
+			speedParameters = input.substring(13,21);
+			robot.log('C',speedParameters);
+			status = robot.moveForward(speedParameters);// get two speed
 																// parameters
 			sendExecutionResponse(messageID, status);
 			break;
 		case 'D':
 			sendCommandAcknowledgement(messageID);
 			System.out.print("\nMoveBackward Command");
-			if (messageSource.equals("D")) {
+			breakpointSubstring = input.substring(9,13);
+			if (breakpointSubstring.equals(breakpointTrigger)) {
 				robot.breakpoint();
 			}
-			robot.log('D',input.substring(13,21));
-			status = robot.moveBackward(input.substring(13, 21));
+			speedParameters = input.substring(13,21);
+			robot.log('D',speedParameters);			
+			status = robot.moveBackward(speedParameters);
 			sendExecutionResponse(messageID, status);
 			break;
 		case 'F':
 			sendCommandAcknowledgement(messageID);
 			System.out.print("\nStop Command");
-			if (messageSource.equals("D")) {
+			breakpointSubstring = input.substring(9,13);
+			if (breakpointSubstring.equals(breakpointTrigger)) {
 				robot.breakpoint();
 			}
 			robot.log('F',"");
@@ -155,6 +173,11 @@ public class RobotComm extends Object {
 			System.out.print("\nGoing Home");
 			status = robot.goHome();
 			sendExecutionResponse(messageID, status);
+			break;
+		case 'Y':
+			System.out.print(" Y");
+			sendCommandAcknowledgement(messageID);
+			robot.setHome();
 			break;
 		case 'Z':
 			System.out.print(" Z");
@@ -188,10 +211,10 @@ public class RobotComm extends Object {
 		sendString(message);
 	}
 
-	private static void sendErrorCode(char c) {
+	private static void sendErrorCode(char errorCode) {
 		String opcode = "M";
 		String message = messageSourceID + format4ByteNumber(messageNumber)
-				+ opcode + Character.toString(c);
+				+ opcode + Character.toString(errorCode);
 		String checksum = calculateChecksum(message);
 		message = headerString + checksum + message + endString;
 		sendString(message);
@@ -200,7 +223,8 @@ public class RobotComm extends Object {
 	public static void sendSystemStatusData() {
 		String opcode = "K";
 		String parameters = "";
-
+		String message;
+		String checksum;
 		parameters = format4ByteNumber(robot.getUltraSonicData())
 				+ format4ByteNumber(robot.getLightData())
 				+ format4ByteNumber(robot.getSoundData())
@@ -209,9 +233,9 @@ public class RobotComm extends Object {
 				+ format4ByteNumber(connection.getSignalStrength())
 				+ format4ByteNumber(robot.getLocation()[0])
 				+ format4ByteNumber(robot.getLocation()[1]);
-		String message = messageSourceID + format4ByteNumber(messageNumber)
+		message = messageSourceID + format4ByteNumber(messageNumber)
 				+ opcode + parameters;
-		String checksum = calculateChecksum(message);
+		checksum = calculateChecksum(message);
 		message = headerString + checksum + message + endString;
 		sendString(message);
 	}
@@ -232,15 +256,15 @@ public class RobotComm extends Object {
 	}
 
 	private static String format4ByteNumber(int number) {
-		int[] numbers = { 0, 0, 0, 0 };
-		numbers[3] = number % 10;
-		numbers[2] = (number % 100) / 10;
-		numbers[1] = (number % 1000) / 100;
-		numbers[0] = (number % 10000) / 1000;
-		String ret = "";
-		ret += Integer.toString(numbers[0]) + Integer.toString(numbers[1])
-				+ Integer.toString(numbers[2]) + Integer.toString(numbers[3]);
-		return ret;
+		int[] digits = { 0, 0, 0, 0 };
+		digits[3] = number % 10;
+		digits[2] = (number % 100) / 10;
+		digits[1] = (number % 1000) / 100;
+		digits[0] = (number % 10000) / 1000;
+		String returnString = "";
+		returnString += Integer.toString(digits[0]) + Integer.toString(digits[1])
+				+ Integer.toString(digits[2]) + Integer.toString(digits[3]);
+		return returnString;
 	}
 
 	public static String calculateChecksum(String messageContent) {
