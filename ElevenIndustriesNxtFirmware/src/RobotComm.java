@@ -83,7 +83,6 @@ public class RobotComm extends Object {
 		}
 		System.out.print("Checksum verification failed");
 		return false;
-
 	}
 
 	public static void sendString(String s) {
@@ -100,7 +99,6 @@ public class RobotComm extends Object {
 		char opcode = input.charAt(8);
 		String messageID = input.substring(3, 8);
 		String status = "N";
-		String messageSource = input.substring(3, 4);
 		String breakpointTrigger = "1111";
 		String breakpointSubstring = "";
 		String speedParameters = "";
@@ -136,8 +134,7 @@ public class RobotComm extends Object {
 			}
 			speedParameters = input.substring(13,21);
 			robot.log('C',speedParameters);
-			status = robot.moveForward(speedParameters);// get two speed
-																// parameters
+			status = robot.moveForward(speedParameters);// get two speed parameters																
 			sendExecutionResponse(messageID, status);
 			break;
 		case 'D':

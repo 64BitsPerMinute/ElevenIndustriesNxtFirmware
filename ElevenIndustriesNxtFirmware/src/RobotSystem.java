@@ -14,7 +14,6 @@ import lejos.robotics.navigation.DifferentialPilot;
 
 public class RobotSystem {
 
-	// Initialize all sensors here
 	private static Touch sTouch = new TouchSensor(SensorPort.S1);
 	private static SoundSensor sSound = new SoundSensor(SensorPort.S2);
 	private static LightSensor sLight = new LightSensor(SensorPort.S3);
@@ -25,14 +24,6 @@ public class RobotSystem {
 	static long previousSoundTime = 0;
 	
 	Stack<Command> log = new Stack<Command>();
-	
-	// DifferentialPilot is our motion controller, we will exclusively use the
-	// object to navigate the robot around
-	// the first two arguments are wheel diameters and track width (in cm)
-	// respectively
-	// last two arguments are left and right motors respectively
-
-	// Instantiate Pilot
 	private DifferentialPilot pilot = new DifferentialPilot(2.25f, 5.5f,
 			Motor.B, Motor.C);
 
@@ -57,11 +48,9 @@ public class RobotSystem {
 							log('F',"");
 						}
 					}
-
 				});
 		
 		SensorPort.S2.addSensorPortListener(new SensorPortListener() {
-			
 			@Override
 			public void stateChanged(SensorPort arg0, int arg1, int arg2) {
 				if(sSound.readValue()>85 && (System.currentTimeMillis()-previousSoundTime)>300){
@@ -72,8 +61,6 @@ public class RobotSystem {
 				}
 			}
 		});
-		
-		
 	}
 	
 	public void breakpoint(){
